@@ -56,27 +56,40 @@ int main(int argc, char **argv)
     }
 
     // Lukea rivi, minkä serveri lähettää. Rivi loppuu aina rivinvaihtomerkkiin
+    printf("-1\n");
     while ((n = read(sockfd, recvline, MAXLINE)) > 0) {
+        printf("n read = %d\n", n);
         if (fputs(recvline, stdout) == EOF) {
             fprintf(stderr, "fputs error\n");
             return 1;
         }
+        printf("\n");
+        if(strchr(recvline, '\n') != NULL) {
+            break;
+        }
     }
+    printf("0\n");
     if (n < 0) {
         perror("read error");
         return 1;
     }
-    
+    strtok (recvline,"\n");
+    printf("vastaanotettu merkkijono: %s***\n", recvline);
 
     // Kutsua funktiota parse_str äsken vastaanotetulle riville
-    struct numbers *numbr
+    printf("1\n");
+    struct numbers *numbr, numbrs;
+    numbr = &numbrs;
+    printf("2\n");
     n = parse_str(recvline, numbr);
+    printf("3\n");
+    printf("n on parsen jälkeen %d", n);
     if (n <= 0) {
         perror("parse error");
         return 1;
     }
     // Välitulostus tarkistuksen vuoksi
-    output_str(char *str, size_t len, const struct numbers *n);
+    printf("Tulostetaan numbr-struktuuri %d, %d,%d,%d,%d\n", numbr->a, numbr->b, numbr->c, numbr->d, numbr->e);
 
     // Lähettää parse_str-funktion luoman tietorakenteen 
     // takaisin serverille binäärimuodossa verkkotavujärjestyksessä
@@ -94,9 +107,18 @@ int main(int argc, char **argv)
 
 
     // Viimeisenä serveri vastaa OK tai FAIL
-
-    
+    while ((n = read(sockfd, recvline, MAXLINE)) > 0) {
+        if (fputs(recvline, stdout) == EOF) {
+            fprintf(stderr, "fputs error\n");
+            return 1;
+        }
+    }
+    if (n < 0) {
+        perror("read error");
+        return 1;
+    }
     return 0;
+    
     // Sulkee pistokkeen
     close(sockfd);
 }
