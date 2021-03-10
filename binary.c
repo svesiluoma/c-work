@@ -56,28 +56,22 @@ int main(int argc, char **argv)
     }
 
     // Lukea rivi, minkä serveri lähettää. Rivi loppuu aina rivinvaihtomerkkiin
-    printf("-1\n");
     while ((n = read(sockfd, recvline, MAXLINE)) > 0) {
-        printf("n read = %d\n", n);
         if (fputs(recvline, stdout) == EOF) {
             fprintf(stderr, "fputs error\n");
             return 1;
         }
-        printf("\n");
         if(strchr(recvline, '\n') != NULL) {
             break;
         }
     }
-    printf("0\n");
     if (n < 0) {
         perror("read error");
         return 1;
     }
     strtok (recvline,"\n");
-    printf("vastaanotettu merkkijono: %s***\n", recvline);
 
     // Kutsua funktiota parse_str äsken vastaanotetulle riville
-    printf("1\n");
     struct numbers *numbr, numbrs;
     numbr = &numbrs;
     n = parse_str(recvline, numbr);
@@ -89,7 +83,6 @@ int main(int argc, char **argv)
     // Lähettää parse_str-funktion luoman tietorakenteen 
     // takaisin serverille binäärimuodossa verkkotavujärjestyksessä
     // ja ilman tyhjää tilaa kenttien välillä
-    printf("2\n");
     // uint8_t a;
     uint8_t *buf_a, aa;
     buf_a = &aa;
@@ -135,7 +128,6 @@ int main(int argc, char **argv)
         perror("write ee error\n");
         return 1;
     }    
-    printf("3\n");
 
     // Lukee viisi etumerkitöntä binäärimuotoista numeroa serveriltä.
     // Nämä numerot ovat kooltaan 8, 32, 8, 16 ja 32 bittiä. 
@@ -179,20 +171,12 @@ int main(int argc, char **argv)
     }    
     numbr->e = ntohl(item32);
 
-    printf("4\n");
-
     // Seuraavaksi ohjelma kutsuu output_str-funktiota antaen
     // sille äsken vastaanotettujen 12 tavun luoman numbers-
     // tietorakenteen.Lähetä tämä merkkijono takaisin palvelimelle.
-    printf("Saadut numerot ovat: %d, %d, %d, %d, %d\n", numbr->a, numbr->b, numbr->c, numbr->d, numbr->e);
     char viestistr[100];
     output_str(viestistr, sizeof(char)*100, numbr);
-    
-    //strcat(viestistr, "\n");
-    printf("viestistr on: %s", viestistr);
-    //char *viesti2 = viestistr;
     n = write(sockfd, viestistr, strlen(viestistr));
-    printf("Viimeisen lähetyksen jälkeen n on %d\n", n);
     if (n < 0) {
         perror("write viimeinen lähetys error\n");
         return 1;
@@ -200,10 +184,9 @@ int main(int argc, char **argv)
     char merkki = '\n';
     n = write(sockfd, &merkki, sizeof(merkki));
     if (n < 0) {
-        perror("write viimeinen lähetys error\n");
+        perror("write viimeinen2 lähetys error\n");
         return 1;
     }
-    printf("5\n");
 
     // Viimeisenä serveri vastaa OK tai FAIL
     while ((n = read(sockfd, recvline, MAXLINE)) > 0) {
@@ -218,8 +201,6 @@ int main(int argc, char **argv)
         return 1;
     }
     return 0;
-
-     printf("\n6\n");
    
     // Sulkee pistokkeen
     close(sockfd);
