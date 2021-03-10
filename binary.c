@@ -87,7 +87,7 @@ int main(int argc, char **argv)
     uint8_t *buf_a, aa;
     buf_a = &aa;
     aa = numbr->a;
-    n = write(sockfd, &aa, sizeof(aa));
+    n = write(sockfd, &aa, sizeof(uint8_t));
     if (n < 0) {
         perror("write aa error\n");
         return 1;
@@ -96,7 +96,7 @@ int main(int argc, char **argv)
     uint32_t *buf_b, bb;
     buf_b = &bb;
     bb = htonl(numbr->b);
-    n = write(sockfd, &bb, sizeof(bb));
+    n = write(sockfd, &bb, sizeof(uint32_t));
     if (n < 0) {
         perror("write bb error\n");
         return 1;
@@ -105,7 +105,7 @@ int main(int argc, char **argv)
     uint8_t *buf_c, cc;
     buf_c = &cc;
     cc = numbr->c;
-    n = write(sockfd, &cc, sizeof(cc));
+    n = write(sockfd, &cc, sizeof(uint8_t));
     if (n < 0) {
         perror("write cc error\n");
         return 1;
@@ -114,7 +114,7 @@ int main(int argc, char **argv)
     uint16_t *buf_d, dd;
     buf_d = &dd;
     dd = htons(numbr->d);
-    n = write(sockfd, &dd, sizeof(dd));
+    n = write(sockfd, &dd, sizeof(uint16_t));
     if (n < 0) {
         perror("write dd error\n");
         return 1;
@@ -123,7 +123,7 @@ int main(int argc, char **argv)
     uint32_t *buf_e, ee;
     buf_e = &ee;
     ee = htonl(numbr->e);
-    n = write(sockfd, &ee, sizeof(ee));
+    n = write(sockfd, &ee, sizeof(uint32_t));
     if (n < 0) {
         perror("write ee error\n");
         return 1;
