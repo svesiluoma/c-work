@@ -142,7 +142,7 @@ int main(int argc, char **argv)
     // Ohjelman tulisi lukea tasan 12 tavua.
 	// uint8_t a;
     uint8_t item8 = 0;
-    n = read(sockfd, &item8, sizeof(1));
+    n = read(sockfd, &item8, sizeof(uint8_t));
     if (n < 0) {
         perror("read aa error\n");
         return 1;
@@ -150,14 +150,14 @@ int main(int argc, char **argv)
     numbr->a = item8;
 	// uint32_t b;
     uint32_t item32 = 0;
-    n = read(sockfd, &item32, sizeof(4));
+    n = read(sockfd, &item32, sizeof(uint32_t));
     if (n < 0) {
         perror("read bb error\n");
         return 1;
     }    
     numbr->b = ntohl(item32);
 	// uint8_t c;
-    n = read(sockfd, &item8, sizeof(1));
+    n = read(sockfd, &item8, sizeof(uint8_t));
     if (n < 0) {
         perror("read cc error\n");
         return 1;
@@ -165,14 +165,14 @@ int main(int argc, char **argv)
     numbr->c = item8;
 	// uint16_t d;
     uint16_t item16 = 0;
-    n = read(sockfd, &item16, sizeof(2));
+    n = read(sockfd, &item16, sizeof(uint16_t));
     if (n < 0) {
         perror("read dd error\n");
         return 1;
     }    
     numbr->d = ntohs(item16);
 	// uint32_t e;
-    n = read(sockfd, &item32, sizeof(4));
+    n = read(sockfd, &item32, sizeof(uint32_t));
     if (n < 0) {
         perror("read ee error\n");
         return 1;
@@ -186,21 +186,28 @@ int main(int argc, char **argv)
     // tietorakenteen.Lähetä tämä merkkijono takaisin palvelimelle.
     printf("Saadut numerot ovat: %d, %d, %d, %d, %d\n", numbr->a, numbr->b, numbr->c, numbr->d, numbr->e);
     char viestistr[100];
-    output_str(viestistr, sizeof(viestistr), numbr);
-    strcat(viestistr, "\n");
+    output_str(viestistr, sizeof(char)*100, numbr);
+    
+    //strcat(viestistr, "\n");
     printf("viestistr on: %s", viestistr);
     //char *viesti2 = viestistr;
-    n = write(sockfd, &viestistr, strlen(viestistr));
+    n = write(sockfd, viestistr, strlen(viestistr));
     printf("Viimeisen lähetyksen jälkeen n on %d\n", n);
     if (n < 0) {
         perror("write viimeinen lähetys error\n");
         return 1;
     }
-
+    char merkki = '\n';
+    n = write(sockfd, &merkki, sizeof(merkki));
+    if (n < 0) {
+        perror("write viimeinen lähetys error\n");
+        return 1;
+    }
     printf("5\n");
 
     // Viimeisenä serveri vastaa OK tai FAIL
     while ((n = read(sockfd, recvline, MAXLINE)) > 0) {
+        recvline[n] = 0;
         if (fputs(recvline, stdout) == EOF) {
             fprintf(stderr, "fputs error\n");
             return 1;
