@@ -93,7 +93,8 @@ int main(int argc, char **argv)
         //returndata = malloc(sizeof(char)*result);
         // char returndata[result+1];
         uint32_t i = 0;
-        while ((n = read(sockfd, returndata, sizeof(char)*(result))) > 0) {
+        while (i<result) {
+            n = read(sockfd, returndata, sizeof(char)*(result));
             printf("n tavuluvun jälkeen: %d\n", n);
             i += n;
             //if (fputs(returndata, stdout) == EOF) {
@@ -114,7 +115,7 @@ int main(int argc, char **argv)
         // jälleen 32-bittisenä kokonaislukuna, verkkotavujärjestyksessä.
         uint32_t *buf, it;
         buf = &it;
-        it = htonl(item32);
+        it = htonl(result);
         n = write(sockfd, &it, sizeof(uint32_t));
         if (n < 0) {
             perror("write it error\n");
