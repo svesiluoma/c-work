@@ -59,13 +59,11 @@ int main(int argc, char **argv)
 
     // Tämän jälkeen palvelin alkaa lähettää sinulle tietolohkoja.
     while (1) {
-        printf("Loopin kierros alkaa\n");
         // Kukin tietolohko alkaa 32-bittisellä etumerkittömällä (unsigned) 
         // kokonaisluvulla, joka kertoo kuinka monta tavua tietolohko 
         // sisältää (muista verkon tavujärjestys!).
         uint32_t item32 = 0;
         n = read(sockfd, &item32, sizeof(uint32_t));
-        printf("n ekan luvun lukemisen jälkeen: %d\n", n);
         if (n < 0) {
             perror("read item32 error\n");
             return 1;
@@ -109,7 +107,6 @@ int main(int argc, char **argv)
         free(returndata);
         returndata = NULL;
 
-        printf("Ennen tavujen määrän lähettämistä i = %d\n", i);
         // Kun olet lukenut koko lohkon, lähetä takaisin 
         // palvelimelle lukemiesi tavujen määrä (eli lohkon koko), 
         // jälleen 32-bittisenä kokonaislukuna, verkkotavujärjestyksessä.
@@ -121,9 +118,7 @@ int main(int argc, char **argv)
             perror("write it error\n");
             return 1;
         }  
-        printf("Tavujen määrä lähettämisen jälkeen: %d\n", n);  
     }
-    printf("Loopin jälkeen\n");
 
     // Viimeisenä serveri vastaa OK tai FAIL
     while ((n = read(sockfd, recvline, MAXLINE)) > 0) {
@@ -132,7 +127,6 @@ int main(int argc, char **argv)
             fprintf(stderr, "fputs error\n");
             return 1;
         }
-        printf("Viimeisessä viestissä luettu n = %d merkkiä\n", n);
     }
     if (n < 0) {
         perror("read error");
