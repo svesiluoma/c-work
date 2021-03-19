@@ -1,6 +1,6 @@
 /*
- * large.c
- * 3-large, suurempien tietomäärien käsittely pistokkeessa
+ * names.c
+ * 4-names - DNS-hakuja ja rinnakkaisten yhteyksien ylläpitämistä
  * Sari Vesiluoma */
 
 #include <stdio.h>
@@ -10,22 +10,14 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include "template.h"
+#include <sys/types.h>
+#include <netdb.h>
+#include <signal.h>
 
 #define MAXLINE 80
 
-
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
-#include <arpa/inet.h>
-#include <signal.h>
-
-
 // Apufunktio osoitteen tulostamiseen
-void print_address(const char *prefix, const struct addrinfo *res, char *ip_address)
+void print_address(const char *prefix, const struct addrinfo *res)
 {
         char outbuf[80];
         struct sockaddr_in *sin = (struct sockaddr_in *)res->ai_addr;
@@ -43,12 +35,11 @@ void print_address(const char *prefix, const struct addrinfo *res, char *ip_addr
 
         const char *ret = inet_ntop(res->ai_family, address, outbuf, sizeof(outbuf));
         printf("%s %s\n", prefix, ret);
-        strcpy(ip_address, ret);
 }
 
 // host: kohdesolmun nimi (tai IP-osoite tekstimuodossa)
 // serv: kohdepalvelun nimi (tai porttinumero tekstimuodossa)
-int tcp_connect(const char *host, const char *serv, char *ip_address)
+int tcp_connect(const char *host, const char *serv)
 {
     int sockfd, n;
     struct addrinfo hints, *res, *ressave;
@@ -79,7 +70,7 @@ int tcp_connect(const char *host, const char *serv, char *ip_address)
             if (sockfd < 0)
                     continue;       /* ignore this one */
 
-            print_address("Trying to connect", res, ip_address);
+            print_address("Trying to connect", res);
 
             // Mikäli yhteys onnistuu, silmukka keskeytetään välittömästi,
             // koska meillä on toimiva yhteys, eikä loppuja osoitteita
@@ -98,7 +89,7 @@ int tcp_connect(const char *host, const char *serv, char *ip_address)
             fprintf(stderr, "tcp_connect error for %s, %s\n", host, serv);
             sockfd = -1;
     } else {
-            print_address("We are using address", res, ip_address);
+            print_address("We are using address", res);
     }
 
     // Järjestelmä on varannut muistin linkitetylle listalle, se pitää vapauttaa
@@ -182,28 +173,39 @@ int main(int argc, char **argv)
     // ja ottaa yhteys nimeä vastaavaan palvelimeen annettuun porttiin, 
     // sulkematta kuitenkaan ensimmäistä pistoketta. 
     // Luo siis toinen pistoke (pistoke-B), josta otat yhteyden.
-    char *ip_address=(char *)malloc(100);
-    int fd = tcp_connect(got_address, got_port, ip_address);
+    int fd = tcp_connect(got_address, got_port);
     if (fd >= 0) {
         printf("success!\n");
     } else {
         perror("fail: \n");
     }
 
-    printf("ip-osoite on: %s\n", ip_address);
     // Kun olet avannut yhteyden nimeä vastaavaan osoitteeseen, 
     // lähetä oma IP-osoitteesi ja käyttämäsi portti 
+    struct sockaddr_in own;
+    socklen_t ownlen = sizeof(struct sockaddr_in);
+    if (getsockname(fd, (struct sockaddr *)&own, &ownlen) < 0) {
+        perror("getsockname error: ");
+    }
+    char outbuf[80];
+    inet_ntop(AF_INET, &(own.sin_addr), outbuf, sizeof(outbuf));
+    // char ownaddress = outbuf;
+    uint16_t ownport = ntohs(own.sin_port);
+    printf("own address: %s  port: %d\n", outbuf, ownport);
+    // printf("own address: %s  port: %d\n", ownaddress, ownport);
     // (jota käytät tässä toisessa pistokkeessa) pistoke-B:hen 
     // palvelimelle formaatissa: ADDR <IP-osoite> <portti> <Opiskelijanro>, 
     // jonka perään tulee rivinvaihtomerkki.  
     //Tämän jälkeen pistoke-B:n palvelin sulkee yhteyden.
+    
     char *eka = "ADDR ";
     n = write(fd, eka, strlen(eka));
     if (n < 0) {
         perror("write1 error\n");
         return 1;
     }
-    n = write(fd, ip_address, strlen(ip_address));
+    char *osoite = outbuf;
+    n = write(fd, osoite, strlen(osoite));
     if (n < 0) {
         perror("write2 error\n");
         return 1;
@@ -213,12 +215,18 @@ int main(int argc, char **argv)
         perror("write3 error\n");
         return 1;
     }
-    n = write(fd, got_port, strlen(got_port));
+    
+    uint16_t *buf, pp;
+    buf = &pp;
+    pp = htons(ownport);
+    printf("ownport: %d, pp: %d\n", ownport, pp);
+    n = write(fd, buf, sizeof(uint16_t));
     if (n < 0) {
         perror("write4 error\n");
         return 1;
-    }
-n = write(fd, " ", sizeof(char));
+    }    
+   
+    n = write(fd, " ", sizeof(char));
     if (n < 0) {
         perror("write5 error\n");
         return 1;
@@ -228,7 +236,7 @@ n = write(fd, " ", sizeof(char));
         perror("write6 error\n");
         return 1;
     }
-    printf("Kirjoitettiin: %s%s %s %s", eka, ip_address, got_port, opnro);
+    
     // Jos yhteydenotto tähän osoitteeseen ei onnistu, 
     // lähetä pistoke-A:han merkkijono FAIL, joka loppuu rivinvaihtomerkkiin. 
     // Tämä tehtävä ei toimi NATin takaa. Miksi?
