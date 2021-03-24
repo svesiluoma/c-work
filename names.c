@@ -147,8 +147,6 @@ int main(int argc, char **argv)
         // jossa on DNS-nimi ja portti tässä formaatissa: CONN <DNS-nimi> <portti>. 
         // Merkkijono loppuu rivinvaihtomerkkiin. 
         // Esimerkiksi: CONN www.google.fi 80.
-   
-        printf("Luetaan palvelimelta tuleva rivi\n");
         while ((n = read(sockfd, recvline, MAXLINE)) > 0) {
             if (fputs(recvline, stdout) == EOF) {
                 fprintf(stderr, "fputs error\n");
@@ -196,16 +194,7 @@ int main(int argc, char **argv)
             perror("getsockname error: ");
         }
         char outbuf[80];
-        inet_ntop(AF_INET, &(own.sin_addr), outbuf, sizeof(outbuf));
-        // char ownaddress = outbuf;
-        // ownport = ntohs(own.sin_port);
-        // printf("own address: %s  port: %d\n", outbuf, ownport);
-        // printf("own address: %s  port: %d\n", ownaddress, ownport);
-        // (jota käytät tässä toisessa pistokkeessa) pistoke-B:hen 
-        // palvelimelle formaatissa: ADDR <IP-osoite> <portti> <Opiskelijanro>, 
-        // jonka perään tulee rivinvaihtomerkki.  
-        //Tämän jälkeen pistoke-B:n palvelin sulkee yhteyden.
-   
+        inet_ntop(AF_INET, &(own.sin_addr), outbuf, sizeof(outbuf));  
         char own_address[100];
         sprintf(own_address, "ADDR %s %d 763088\n", outbuf, ntohs(own.sin_port));
         printf("own_address: %s\n", own_address);
@@ -214,26 +203,7 @@ int main(int argc, char **argv)
                 perror("write1 error\n");
                 return 1;
             }
-        printf("Täällä taas \n");
     }
-
-    // Jos yhteydenotto tähän osoitteeseen ei onnistu, 
-    // lähetä pistoke-A:han merkkijono FAIL, joka loppuu rivinvaihtomerkkiin. 
-    // Tämä tehtävä ei toimi NATin takaa. Miksi?
-    // Tämän jälkeen odota uutta komentoa palvelimelta (pistoke-A:sta), 
-    // kunnes pistoke-A:sta tulee joko “OK” tai “FAIL”.
-//     while ((n = read(sockfd, recvline, MAXLINE)) > 0) {
-//         recvline[n] = 0;
-//         if (fputs(recvline, stdout) == EOF) {
-//             fprintf(stderr, "fputs error\n");
-//             return 1;
-//         }
-//     }
-//     if (n < 0) {
-//         perror("read error");
-//         return 1;
-//     }
-    return 0;
    
     // Sulkee pistokkeen
     close(sockfd);
