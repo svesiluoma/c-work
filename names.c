@@ -44,11 +44,10 @@ int tcp_connect(const char *host, const char *serv)
     int sockfd, n;
     struct addrinfo hints, *res, *ressave;
 
-    // Ensiksi kerrotaan hints-rakenteessa, että osoiteperhettä ei ole
-    // rajoitettu, eli sekä IPv4 ja IPv6 - osoitteet kelpaavat.
-    // Lisäksi sanomme, että olemme pelkästään kiinnostuneita TCP-yhteyksistä
+    // Käytetään IPv4-osoitteita
+    // Olemme pelkästään kiinnostuneita TCP-yhteyksistä
     memset(&hints, 0, sizeof(struct addrinfo));
-    hints.ai_family = AF_UNSPEC;
+    hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
 
     // Tehdään nimikysely käyttäen ylläolevaa hints-rakennetta
@@ -143,118 +142,97 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    // Tämän jälkeen palvelin lähettää komennon merkkijonona, 
-    // jossa on DNS-nimi ja portti tässä formaatissa: CONN <DNS-nimi> <portti>. 
-    // Merkkijono loppuu rivinvaihtomerkkiin. 
-    // Esimerkiksi: CONN www.google.fi 80.
-    printf("Luetaan palvelimelta tuleva rivi\n");
-    while ((n = read(sockfd, recvline, MAXLINE)) > 0) {
-        if (fputs(recvline, stdout) == EOF) {
-            fprintf(stderr, "fputs error\n");
+    while (1) {
+        // Tämän jälkeen palvelin lähettää komennon merkkijonona, 
+        // jossa on DNS-nimi ja portti tässä formaatissa: CONN <DNS-nimi> <portti>. 
+        // Merkkijono loppuu rivinvaihtomerkkiin. 
+        // Esimerkiksi: CONN www.google.fi 80.
+   
+        printf("Luetaan palvelimelta tuleva rivi\n");
+        while ((n = read(sockfd, recvline, MAXLINE)) > 0) {
+            if (fputs(recvline, stdout) == EOF) {
+                fprintf(stderr, "fputs error\n");
+                return 1;
+            }
+            if(strchr(recvline, '\n') != NULL) {
+                break;
+            }
+        }
+        if (n < 0) {
+            perror("read error");
             return 1;
         }
-        if(strchr(recvline, '\n') != NULL) {
+        strtok (recvline,"\n");
+
+        if (strstr(recvline, "FAIL") != NULL) {
             break;
         }
-    }
-    if (n < 0) {
-        perror("read error");
-        return 1;
-    }
-    strtok (recvline,"\n");
 
-    // Luetaan osoite ja portti
-    char got_address[100];
-    char got_port[10];
-    sscanf(recvline, "CONN %s %s", got_address, got_port);
-    printf("Osoite on %s ja portti on %s\n", got_address, got_port);
+        if (strstr(recvline, "OK") != NULL) {
+            break;
+        }
+        // Luetaan osoite ja portti
+        char got_address[100];
+        char got_port[10];
+        sscanf(recvline, "CONN %s %s", got_address, got_port);
+        printf("Osoite on %s ja portti on %s\n", got_address, got_port);
 
-    // Tämän jälkeen sinun tulisi tehdä DNS-kysely 
-    // ja ottaa yhteys nimeä vastaavaan palvelimeen annettuun porttiin, 
-    // sulkematta kuitenkaan ensimmäistä pistoketta. 
-    // Luo siis toinen pistoke (pistoke-B), josta otat yhteyden.
-    int fd = tcp_connect(got_address, got_port);
-    if (fd >= 0) {
-        printf("success!\n");
-    } else {
-        perror("fail: \n");
-    }
+        // Tämän jälkeen sinun tulisi tehdä DNS-kysely 
+        // ja ottaa yhteys nimeä vastaavaan palvelimeen annettuun porttiin, 
+        // sulkematta kuitenkaan ensimmäistä pistoketta. 
+        // Luo siis toinen pistoke (pistoke-B), josta otat yhteyden.
+        int fd = tcp_connect(got_address, got_port);
+        if (fd >= 0) {
+            printf("success!\n");
+        } else {
+            perror("fail: \n");
+        }
 
-    // Kun olet avannut yhteyden nimeä vastaavaan osoitteeseen, 
-    // lähetä oma IP-osoitteesi ja käyttämäsi portti 
-    struct sockaddr_in own;
-    socklen_t ownlen = sizeof(struct sockaddr_in);
-    if (getsockname(fd, (struct sockaddr *)&own, &ownlen) < 0) {
-        perror("getsockname error: ");
-    }
-    char outbuf[80];
-    inet_ntop(AF_INET, &(own.sin_addr), outbuf, sizeof(outbuf));
-    // char ownaddress = outbuf;
-    uint16_t ownport = ntohs(own.sin_port);
-    printf("own address: %s  port: %d\n", outbuf, ownport);
-    // printf("own address: %s  port: %d\n", ownaddress, ownport);
-    // (jota käytät tässä toisessa pistokkeessa) pistoke-B:hen 
-    // palvelimelle formaatissa: ADDR <IP-osoite> <portti> <Opiskelijanro>, 
-    // jonka perään tulee rivinvaihtomerkki.  
-    //Tämän jälkeen pistoke-B:n palvelin sulkee yhteyden.
-    
-    char *eka = "ADDR ";
-    n = write(fd, eka, strlen(eka));
-    if (n < 0) {
-        perror("write1 error\n");
-        return 1;
-    }
-    char *osoite = outbuf;
-    n = write(fd, osoite, strlen(osoite));
-    if (n < 0) {
-        perror("write2 error\n");
-        return 1;
-    }
-    n = write(fd, " ", sizeof(char));
-    if (n < 0) {
-        perror("write3 error\n");
-        return 1;
-    }
-    
-    uint16_t *buf, pp;
-    buf = &pp;
-    pp = htons(ownport);
-    printf("ownport: %d, pp: %d\n", ownport, pp);
-    n = write(fd, buf, sizeof(uint16_t));
-    if (n < 0) {
-        perror("write4 error\n");
-        return 1;
-    }    
+        // Kun olet avannut yhteyden nimeä vastaavaan osoitteeseen, 
+        // lähetä oma IP-osoitteesi ja käyttämäsi portti 
+        struct sockaddr_in own;
+        socklen_t ownlen = sizeof(struct sockaddr_in);
+        if (getsockname(fd, (struct sockaddr *)&own, &ownlen) < 0) {
+            perror("getsockname error: ");
+        }
+        char outbuf[80];
+        inet_ntop(AF_INET, &(own.sin_addr), outbuf, sizeof(outbuf));
+        // char ownaddress = outbuf;
+        // ownport = ntohs(own.sin_port);
+        // printf("own address: %s  port: %d\n", outbuf, ownport);
+        // printf("own address: %s  port: %d\n", ownaddress, ownport);
+        // (jota käytät tässä toisessa pistokkeessa) pistoke-B:hen 
+        // palvelimelle formaatissa: ADDR <IP-osoite> <portti> <Opiskelijanro>, 
+        // jonka perään tulee rivinvaihtomerkki.  
+        //Tämän jälkeen pistoke-B:n palvelin sulkee yhteyden.
    
-    n = write(fd, " ", sizeof(char));
-    if (n < 0) {
-        perror("write5 error\n");
-        return 1;
+        char own_address[100];
+        sprintf(own_address, "ADDR %s %d 763088\n", outbuf, ntohs(own.sin_port));
+        printf("own_address: %s\n", own_address);
+        n = write(fd, own_address, strlen(own_address));
+            if (n < 0) {
+                perror("write1 error\n");
+                return 1;
+            }
+        printf("Täällä taas \n");
     }
-    n = write(fd, opnro, strlen(opnro));
-    if (n < 0) {
-        perror("write6 error\n");
-        return 1;
-    }
-    
+
     // Jos yhteydenotto tähän osoitteeseen ei onnistu, 
     // lähetä pistoke-A:han merkkijono FAIL, joka loppuu rivinvaihtomerkkiin. 
     // Tämä tehtävä ei toimi NATin takaa. Miksi?
-
-
     // Tämän jälkeen odota uutta komentoa palvelimelta (pistoke-A:sta), 
     // kunnes pistoke-A:sta tulee joko “OK” tai “FAIL”.
-    while ((n = read(sockfd, recvline, MAXLINE)) > 0) {
-        recvline[n] = 0;
-        if (fputs(recvline, stdout) == EOF) {
-            fprintf(stderr, "fputs error\n");
-            return 1;
-        }
-    }
-    if (n < 0) {
-        perror("read error");
-        return 1;
-    }
+//     while ((n = read(sockfd, recvline, MAXLINE)) > 0) {
+//         recvline[n] = 0;
+//         if (fputs(recvline, stdout) == EOF) {
+//             fprintf(stderr, "fputs error\n");
+//             return 1;
+//         }
+//     }
+//     if (n < 0) {
+//         perror("read error");
+//         return 1;
+//     }
     return 0;
    
     // Sulkee pistokkeen
