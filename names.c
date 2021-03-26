@@ -166,9 +166,9 @@ int main(int argc, char **argv)
             break;
         }
 
-        if (strstr(recvline, "OK") != NULL) {
-            break;
-        }
+        // if (strstr(recvline, "OK") != NULL) {
+        //    break;
+        //}
         // Luetaan osoite ja portti
         char got_address[100];
         char got_port[10];
