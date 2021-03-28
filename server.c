@@ -61,40 +61,46 @@ int main(int argc, char **argv)
     // Sinun tulee hyväksyä satunnainen määrä tulevia yhteyksiä. 
     // Aina kun tehtäväpalvelin lähettää ensimmäiseen pistokkeeseen “MORE” + rivinvaihto, 
     char *returndata = malloc(5 * sizeof(char));
-    n = 1;
     char buff[80];
-    while (n > 0) {
+    int i = 0;
+    while (1) {
         n = read(sockfd, returndata, sizeof(char)*5);
-        printf("n tavuluvun jälkeen: %d ja vastaanotettu: %s\n", n, returndata); 
+        if (strstr(returndata, "OK") != NULL) {
+            break;
+        }
         if (strstr(returndata, "MORE") != NULL) {
-            printf("Tuli MORE\n");
             // luo palvelinpistoke joka kuuntelee määräämääsi porttia (ja osoitetta).
             // luodaan kuunteleva pistoke
             if ((listenfd = socket(AF_INET6, SOCK_STREAM, 0)) < 0) {
                 perror("socket");
                 return -1;
             }
-            printf("Palvelinpistoke luotu\n");
             // Valitaan portti ja sidotaan pistoke siihen
             // Hyväksytään sisääntulevat yhteydet mistä tahansa osoitteesta
-            memset(&lisaddr, 0, sizeof(servaddr));
+            memset(&lisaddr, 0, sizeof(lisaddr));
             lisaddr.sin6_family = AF_INET6;
             lisaddr.sin6_addr = in6addr_any;
-            lisaddr.sin6_port = htons(6350);
+            lisaddr.sin6_port = htons(6272);
 
-            if (bind(listenfd, (struct sockaddr *) &lisaddr,
-                sizeof(lisaddr)) < 0) {
+            if (bind(listenfd, (struct sockaddr *) &lisaddr, sizeof(lisaddr)) < 0) {
                 perror("bind");
                 return -1;
             }
-            printf("Bind tehty\n");
+
+            // Sitten lähetä tehtäväpalvelimelle takaisin viesti “SERV <IP-osoite> <portti>” + rivinvaihto. 
+            // Nyt tehtäväpalvelin ottaa yhteyttä antamaasi osoitteeseen.
+            char *data = "SERV  130.233.154.208 6272\n";
+            n = write(sockfd, data, strlen(data));
+            if (n < 0) {
+                perror("write1 error\n");
+                return 1;
+            }
 
             // Kuunnellaan pistoketta, määrätään ruuhkajonon kooksi 5.
            if (listen(listenfd, LISTENQ) < 0) {
                perror("listen");
                 return -1;
             }
-            printf("Kuuntelu aloitettu\n");
             len = sizeof(cliaddr);
 
             // Uusi yhteys, connfd on uusi pistoke josta dataa voidaan
@@ -103,62 +109,38 @@ int main(int argc, char **argv)
                 perror("accept");
                 return -1;
             }
-            printf("tässä\n");
-            const char *osoite = inet_ntop(AF_INET6, &cliaddr.sin6_addr, buff, sizeof(buff));
-            uint16_t portti = ntohs(cliaddr.sin6_port);
-            printf("connection from %s, port %d\n", osoite, portti);
 
-            // Sitten lähetä tehtäväpalvelimelle takaisin viesti “SERV <IP-osoite> <portti>” + rivinvaihto. 
-            // Nyt tehtäväpalvelin ottaa yhteyttä antamaasi osoitteeseen.
-            char *eka = "SERV ";
-            n = write(sockfd, eka, strlen(eka));
-            if (n < 0) {
-                perror("write1 error\n");
-                return 1;
-            }
-            n = write(sockfd, osoite, strlen(osoite));
-            if (n < 0) {
-                perror("write2 error\n");
-                return 1;
-            }
-            n = write(sockfd, " ", sizeof(char));
-            if (n < 0) {
-                perror("write3 error\n");
-                return 1;
-            }
-            uint16_t *buf, pp;
-            buf = &pp;
-            pp = htons(portti);
-            n = write(sockfd, buf, sizeof(uint16_t));
-            if (n < 0) {
-                perror("write4 error\n");
-                return 1;
-            }       
-            n = write(sockfd, "\n", sizeof(char));
-            if (n < 0) {
-                perror("write5 error\n");
-                return 1;
-            }
+            // Nyt tehtäväpalvelin ottaa yhteyttä antamaasi osoitteeseen.           
+            while (1) {
+                // se lähettää sinulle 32-bittisen luvun. 
+                uint32_t item32 = 0;
+                n = read(connfd, &item32, sizeof(uint32_t));
+                if (n < 0) {
+                perror("read bb error\n");
+                    return 1;
+                }    
+                int luku = ntohl(item32);
 
-            // Nyt tehtäväpalvelin ottaa yhteyttä antamaasi osoitteeseen.
-            // Kun tehtäväpalvelin on yhdistänyt palvelinpistokkeeseesi, 
-            // se lähettää sinulle 32-bittisen luvun. 
+                if (luku == 0) {
+                    close(connfd);
+                    close(listenfd);
+                    break;
+                }
 
-            // Seuraavaksi tehtäväpalvelin odottaa, että lähetät tuon luvun verran 
-            // tavuja takaisin palvelinpistokkeen kautta. 
-            // Odota seuraavaa 32-bittistä lukua ja toista prosessi, 
-            // kunnes tehtäväpalvelin sulkee palvelinpistokkeessa olevan yhteyden. 
-
-            close(connfd);
+                // Seuraavaksi tehtäväpalvelin odottaa, että lähetät tuon luvun verran 
+                // tavuja takaisin palvelinpistokkeen kautta. 
+                char *sendstring;
+                sendstring = malloc((luku+1)*sizeof(char));
+                memset(sendstring, 'X', luku);
+                n = write(connfd, sendstring, strlen(sendstring));
+                if (n < 0) {
+                 perror("Tavujen palauttaminen takaisin ei onnistu\n");
+                    return 1;
+                }
+            }            
         }
     }
-    if (n < 0) {
-        perror("read error");
-        return 1;
-    }
     free(returndata);
-    returndata = NULL;
-
 
     // Testi päättyy kun palvelin lähettää ensimmäiseen pistokkeeseen 
     // “OK” tai “FAIL” riippuen siitä, onnistuiko testi.
